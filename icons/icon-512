@@ -1,1 +1,8 @@
-https://chatgpt.com/s/m_691b1aff661481919f26c03dcab1e2dc
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#0A62A8"/>
+  <g fill="#fff">
+    <rect x="96" y="128" width="320" height="48" rx="12"/>
+    <rect x="96" y="224" width="320" height="48" rx="12"/>
+    <rect x="96" y="320" width="224" height="48" rx="12"/>
+  </g>
+</svg>
