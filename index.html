@@ -1,1 +1,160 @@
-<!doctype html><html><body>TradeTrackr PWA placeholder</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>TradeTrackr</title>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0A62A8"/>
+  <link rel="icon" href="/icons/icon-192.svg" sizes="192x192">
+
+  <link rel="stylesheet" href="/src/css/styles.css">
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="topbar">
+      <button id="menuBtn" class="icon-btn" aria-label="Menu">☰</button>
+      <h1 id="pageTitle">TradeTrackr</h1>
+      <button id="addBtn" class="icon-btn" aria-label="Add">＋</button>
+    </header>
+
+    <nav id="sidebar" class="sidebar hidden" aria-hidden="true">
+      <ul>
+        <li><a href="#/">Dashboard</a></li>
+        <li><a href="#/jobs">Jobs</a></li>
+        <li><a href="#/clients">Clients</a></li>
+        <li><a href="#/materials">Materials</a></li>
+        <li><a href="#/settings">Settings</a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <small>Offline-ready PWA</small>
+      </div>
+    </nav>
+
+    <main id="view" class="view" role="main"></main>
+
+    <footer class="bottombar" role="navigation" aria-label="Bottom navigation">
+      <nav>
+        <a href="#/" class="tab" title="Home">🏠</a>
+        <a href="#/jobs" class="tab" title="Jobs">🧰</a>
+        <a href="#/clients" class="tab" title="Clients">👥</a>
+        <a href="#/materials" class="tab" title="Materials">📦</a>
+      </nav>
+    </footer>
+  </div>
+
+  <!-- Templates -->
+  <template id="tpl-dashboard">
+    <section class="page">
+      <h2>Today's Jobs</h2>
+      <div id="todayList" class="list"></div>
+
+      <h2>Upcoming</h2>
+      <div id="upcomingList" class="list"></div>
+    </section>
+  </template>
+
+  <template id="tpl-jobs">
+    <section class="page">
+      <div class="toolbar-row">
+        <input id="jobFilter" placeholder="Search jobs..." />
+        <select id="jobStatusFilter">
+          <option value="">All</option>
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+      <div id="jobsList" class="list"></div>
+    </section>
+  </template>
+
+  <template id="tpl-job-detail">
+    <section class="page">
+      <h2 id="jobTitle"></h2>
+      <p class="muted" id="jobClient"></p>
+
+      <div class="card">
+        <p id="jobAddress"></p>
+        <p id="jobNotes"></p>
+        <p><strong>Quote:</strong> <span id="jobQuote"></span></p>
+        <p><strong>Labor hrs:</strong> <span id="jobHours"></span></p>
+        <p><strong>Status:</strong> <span id="jobStatus"></span></p>
+      </div>
+
+      <div id="photosWrap" class="photos"></div>
+
+      <div class="row">
+        <button id="startStopBtn" class="btn primary">Start / Stop</button>
+        <button id="editJobBtn" class="btn">Edit</button>
+        <button id="deleteJobBtn" class="btn danger">Delete</button>
+      </div>
+
+      <h3>Materials</h3>
+      <div id="jobMaterials" class="list"></div>
+
+      <div class="row">
+        <button id="addPhotoInput" class="btn">Add Photo</button>
+        <button id="printInvoiceBtn" class="btn">Print Invoice</button>
+      </div>
+    </section>
+  </template>
+
+  <template id="tpl-edit-job">
+    <section class="page">
+      <h2 id="editTitle">New Job</h2>
+      <form id="jobForm" class="form">
+        <label>Title<input name="title" required></label>
+        <label>Client<select name="client"></select></label>
+        <label>Address<input name="address"></label>
+        <label>Quote (£)<input name="quote" inputmode="decimal"></label>
+        <label>Labor hours<input name="hours" inputmode="decimal"></label>
+        <label>Notes<textarea name="notes"></textarea></label>
+        <div class="row">
+          <button type="submit" class="btn primary">Save</button>
+          <button type="button" id="cancelEdit" class="btn">Cancel</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="tpl-clients">
+    <section class="page">
+      <div class="toolbar-row">
+        <input id="clientFilter" placeholder="Search clients..." />
+        <button id="addClientBtn" class="btn">Add Client</button>
+      </div>
+      <div id="clientsList" class="list"></div>
+    </section>
+  </template>
+
+  <template id="tpl-materials">
+    <section class="page">
+      <div class="toolbar-row">
+        <input id="materialFilter" placeholder="Search materials..." />
+        <button id="addMaterialBtn" class="btn">Add Material</button>
+      </div>
+      <div id="materialsList" class="list"></div>
+    </section>
+  </template>
+
+  <template id="tpl-settings">
+    <section class="page">
+      <h2>Settings</h2>
+      <label>Business name<input id="bizName"></label>
+      <label>VAT %<input id="vat" inputmode="decimal"></label>
+      <p class="muted">Data is stored locally in your browser. Back up by exporting data.</p>
+      <div class="row">
+        <button id="exportBtn" class="btn">Export JSON</button>
+        <button id="importBtn" class="btn">Import JSON</button>
+      </div>
+    </section>
+  </template>
+
+  <input id="fileInput" type="file" accept="image/*" style="display:none"/>
+
+  <script src="/src/js/app.js" defer></script>
+</body>
+</html>
