@@ -1,6 +1,11 @@
-(() => {
-  // ----- Utilities -----
+/* app.js - TradeTrackr PWA
+   Adds: PIN login (4-digit), Add Material to Job, Logout
+*/
+(async () => {
+  // ----- Utilities & constants -----
   const STORAGE_KEY = 'tt_data_v1';
+  const PIN_HASH_KEY = 'tt_pin_hash_v1';
+  const AUTH_SESSION_KEY = 'tt_auth_v1'; // stored in sessionStorage
   const appEl = document.getElementById('app');
   const view = document.getElementById('view');
   const pageTitle = document.getElementById('pageTitle');
@@ -11,6 +16,16 @@
 
   function uid(prefix='id') { return prefix + '_' + Math.random().toString(36).slice(2,9); }
   function nowISO(){ return (new Date()).toISOString(); }
+
+  // ----- Crypto helper (SHA-256 to hex) -----
+  async function sha256Hex(str){
+    const enc = new TextEncoder();
+    const data = enc.encode(str);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    // convert to hex
+    const h = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+    return h;
+  }
 
   // ----- Default seed data -----
   function defaultData(){
@@ -46,6 +61,33 @@
   }
   function saveData(data){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 
+  // ----- Auth helpers -----
+  async function hasPin(){
+    return !!localStorage.getItem(PIN_HASH_KEY);
+  }
+  async function setPin(pin){
+    const h = await sha256Hex(pin);
+    localStorage.setItem(PIN_HASH_KEY, h);
+  }
+  async function verifyPin(pin){
+    const stored = localStorage.getItem(PIN_HASH_KEY);
+    if (!stored) return false;
+    const h = await sha256Hex(pin);
+    return h === stored;
+  }
+  function isAuthenticated(){
+    return sessionStorage.getItem(AUTH_SESSION_KEY) === '1';
+  }
+  function setAuthenticated(val){
+    if (val) sessionStorage.setItem(AUTH_SESSION_KEY, '1');
+    else sessionStorage.removeItem(AUTH_SESSION_KEY);
+  }
+  function logout(){
+    setAuthenticated(false);
+    location.hash = '#/login';
+    route(); // force login screen
+  }
+
   // ----- App state -----
   let state = loadData();
 
@@ -54,18 +96,20 @@
     navigator.serviceWorker.register('/service-worker.js').catch(()=>{ /* ignore */});
   }
 
-  // ----- Simple router -----
+  // ----- Router -----
   function route(){
     const hash = location.hash || '#/';
+    // If not authenticated, always show login
+    if (!isAuthenticated()) {
+      renderLogin();
+      return;
+    }
+
     // hide sidebar on nav
     sidebar.classList.add('hidden');
     const parts = hash.replace(/^#/,'').split('/');
-    if (hash === '#/' || hash === '') {
-      renderDashboard(); return;
-    }
-    if (hash.startsWith('#/jobs/') && parts[2]) {
-      renderJobDetail(parts[2]); return;
-    }
+    if (hash === '#/' || hash === '') { renderDashboard(); return; }
+    if (hash.startsWith('#/jobs/') && parts[2]) { renderJobDetail(parts[2]); return; }
     if (hash.startsWith('#/jobs')) { renderJobs(); return; }
     if (hash.startsWith('#/clients')) { renderClients(); return; }
     if (hash.startsWith('#/materials')) { renderMaterials(); return; }
@@ -73,8 +117,74 @@
     renderDashboard();
   }
 
-  // ----- Render helpers (templates) -----
+  // ----- Render helpers -----
   function clearView(){ view.innerHTML = ''; }
+
+  function renderLogin(){
+    pageTitle.textContent = 'Sign in';
+    clearView();
+    // build login UI from scratch (simple)
+    const div = document.createElement('div');
+    div.className = 'page';
+    const has = localStorage.getItem(PIN_HASH_KEY) ? true : false;
+
+    const html = has ? `
+      <h2>Enter PIN</h2>
+      <p>Enter your 4-digit PIN to unlock.</p>
+      <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="PIN" />
+      <div class="row" style="margin-top:12px">
+        <button id="pinSubmit" class="btn primary">Unlock</button>
+      </div>
+      <p class="muted small" style="margin-top:12px">If you forgot your PIN, you can reset it (this will erase app data).</p>
+      <div class="row" style="margin-top:8px">
+        <button id="resetPinBtn" class="btn danger">Reset App</button>
+      </div>
+    ` : `
+      <h2>Set a 4-digit PIN</h2>
+      <p>Create a PIN to protect access to the app on this device.</p>
+      <input id="pinNew" type="password" inputmode="numeric" maxlength="6" placeholder="New PIN" />
+      <input id="pinConfirm" type="password" inputmode="numeric" maxlength="6" placeholder="Confirm PIN" style="margin-top:8px"/>
+      <div class="row" style="margin-top:12px">
+        <button id="pinCreate" class="btn primary">Set PIN</button>
+      </div>
+    `;
+    div.innerHTML = html;
+    view.appendChild(div);
+
+    // Wire up
+    if (has) {
+      const pinInput = document.getElementById('pinInput');
+      const submit = document.getElementById('pinSubmit');
+      submit.addEventListener('click', async ()=>{
+        const v = (pinInput.value||'').trim();
+        if (!v) return alert('Enter PIN');
+        const ok = await verifyPin(v);
+        if (ok) { setAuthenticated(true); route(); } else { alert('Wrong PIN'); }
+      });
+
+      document.getElementById('resetPinBtn').addEventListener('click', ()=>{
+        if (!confirm('Reset will erase ALL local app data and remove PIN. Continue?')) return;
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(PIN_HASH_KEY);
+        state = loadData();
+        setAuthenticated(false);
+        alert('App reset. Please set a new PIN.');
+        renderLogin();
+      });
+
+    } else {
+      document.getElementById('pinCreate').addEventListener('click', async ()=>{
+        const p1 = document.getElementById('pinNew').value.trim();
+        const p2 = document.getElementById('pinConfirm').value.trim();
+        if (!p1 || !p2) return alert('Enter and confirm PIN');
+        if (p1 !== p2) return alert('PINs do not match');
+        if (!/^[0-9]{4,6}$/.test(p1)) return alert('PIN should be 4-6 digits');
+        await setPin(p1);
+        alert('PIN saved. Please sign in.');
+        renderLogin();
+      });
+    }
+  }
 
   function renderDashboard(){
     pageTitle.textContent = 'Dashboard';
@@ -184,6 +294,31 @@
         state.jobs = state.jobs.filter(x=>x.id!==job.id); saveData(state); location.hash = '#/jobs';
       }
     });
+
+    // NEW: Add Material to Job (friendly picker)
+    const addMatBtn = tpl.getElementById('addMaterialToJobBtn');
+    if (addMatBtn) {
+      addMatBtn.addEventListener('click', ()=> {
+        if (!state.materials.length) {
+          alert('No materials found. Add some in the Materials tab first.');
+          return;
+        }
+        // show numbered list and ask for index
+        let listText = 'Select material by number:\\n';
+        state.materials.forEach((m,i)=> listText += `${i+1}. ${m.name} (£${Number(m.unitPrice||0).toFixed(2)})\\n`);
+        const sel = prompt(listText + '\\nEnter number (e.g. 1):');
+        if (!sel) return;
+        const idx = parseInt(sel,10) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= state.materials.length) { alert('Invalid selection'); return; }
+        const mat = state.materials[idx];
+        const qtyRaw = prompt(`Quantity for ${mat.name}?`, '1');
+        const qty = parseFloat(qtyRaw || '0');
+        if (!qty || qty <= 0) return;
+        job.materials.push({ id: mat.id, name: mat.name, qty, price: mat.unitPrice });
+        saveData(state);
+        renderJobDetail(id);
+      });
+    }
 
     tpl.getElementById('addPhotoInput').addEventListener('click', ()=> {
       fileInput.onchange = async (e) => {
@@ -343,6 +478,17 @@
     const vat = tpl.getElementById('vat');
     biz.value = state.settings.bizName || '';
     vat.value = state.settings.vat || 0;
+
+    // Logout button (if present in template)
+    const logoutBtn = tpl.querySelector('#logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', ()=>{
+        if (!confirm('Log out? You will need your PIN to sign back in.')) return;
+        setAuthenticated(false);
+        route();
+      });
+    }
+
     tpl.getElementById('exportBtn').addEventListener('click', ()=>{
       const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
       const url = URL.createObjectURL(blob);
@@ -405,6 +551,7 @@
   // ----- Menu / UI wiring -----
   menuBtn.addEventListener('click', ()=> sidebar.classList.toggle('hidden'));
   addBtn.addEventListener('click', ()=>{
+    if (!isAuthenticated()) { renderLogin(); return; }
     if (location.hash.startsWith('#/jobs')) {
       renderEditJob(null);
     } else {
@@ -414,10 +561,22 @@
   });
 
   window.addEventListener('hashchange', route);
-  // initial route
-  route();
+  // initial route (if authenticated show app, else login)
+  if (!isAuthenticated()) {
+    renderLogin();
+  } else {
+    route();
+  }
 
   // expose for debugging
-  window.__trade = { state, save: ()=> saveData(state), reload: ()=> {state = loadData(); route();} };
+  window.__trade = {
+    state,
+    save: ()=> saveData(state),
+    reload: ()=> { state = loadData(); route(); },
+    logout: ()=> { logout(); }
+  };
+
+  // Auto-save on unload (optional)
+  window.addEventListener('beforeunload', () => saveData(state));
 
 })();
